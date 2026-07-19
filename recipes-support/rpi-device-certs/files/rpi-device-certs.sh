@@ -46,6 +46,22 @@ fi
 
 HOSTNAME=$(hostname)
 
+if [ -f "$CERT_FILE" ]; then
+    CERT_SAN=$(openssl x509 -in "$CERT_FILE" -noout -ext subjectAltName 2>/dev/null || true)
+    if [ -z "$CERT_SAN" ]; then
+        echo "Could not read SAN from existing certificate; regenerating"
+        rm -f "$CERT_FILE"
+    else
+        if ! echo "$CERT_SAN" | grep -F "DNS:$HOSTNAME" >/dev/null 2>&1; then
+            echo "Certificate SAN hostname drift detected; regenerating"
+            rm -f "$CERT_FILE"
+        elif ! echo "$CERT_SAN" | grep -F "IP Address:$DEVICE_IP" >/dev/null 2>&1; then
+            echo "Certificate SAN IP drift detected; regenerating"
+            rm -f "$CERT_FILE"
+        fi
+    fi
+fi
+
 # Generate a self-signed device certificate whose private key lives in the
 # RPi OTP-backed PKCS#11 token (no key material ever stored on disk).
 # Override the token name / key id with PKCS11_TOKEN / SERVER_KEY_ID.
