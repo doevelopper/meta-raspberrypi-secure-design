@@ -7,8 +7,10 @@
 #   --force: regenerate all device certificates even if they already exist
 
 CERT_FILE="rpi-device-cert.pem"
+CERT_KEY_FILE="rpi-device-key.pem"
 CERT_VALID_DAYS="${RPI_DEVICE_CERT_VALID_DAYS:-365}"
 CERT_RENEW_DAYS="${RPI_DEVICE_CERT_RENEW_DAYS:-30}"
+CERT_BACKEND="${RPI_DEVICE_CERT_BACKEND:-pkcs11}"
 
 
 if [ "$1" = "--force" ]; then
@@ -26,6 +28,15 @@ esac
 case "$CERT_VALID_DAYS" in
     ''|*[!0-9]*)
         echo "Invalid RPI_DEVICE_CERT_VALID_DAYS: $CERT_VALID_DAYS"
+        exit 1
+        ;;
+esac
+
+case "$CERT_BACKEND" in
+    pkcs11|file)
+        ;;
+    *)
+        echo "Invalid RPI_DEVICE_CERT_BACKEND: $CERT_BACKEND (expected: pkcs11|file)"
         exit 1
         ;;
 esac
@@ -70,29 +81,48 @@ SERVER_KEY_ID="${SERVER_KEY_ID:-%01}"
 SERVER_KEY_URI="pkcs11:object=${PKCS11_TOKEN};id=${SERVER_KEY_ID};type=private"
 
 if [ ! -f "$CERT_FILE" ]; then
+    if [ "$CERT_BACKEND" = "pkcs11" ]; then
     # pkcs11-provider reconstructs EC keys with explicit curve parameters:
     # browsers reject these so reencode as named curve (prime256v1)
     openssl pkey -provider pkcs11 -provider default -pubin \
-            -in "pkcs11:object=${PKCS11_TOKEN};id=${SERVER_KEY_ID};type=public" \
-            -pubout | \
+        -in "pkcs11:object=${PKCS11_TOKEN};id=${SERVER_KEY_ID};type=public" \
+        -pubout | \
     openssl ec -pubin -param_enc named_curve -out rpi-device-pubkey.pem || exit 1
 
     openssl req -new -provider pkcs11 -provider default \
-            -key "$SERVER_KEY_URI" \
-            -subj "/C=DE/ST=BW/O=Embetrix/OU=DeviceCert/CN=$HOSTNAME" \
-            -addext "subjectAltName=DNS:$HOSTNAME,DNS:localhost,IP:$DEVICE_IP,IP:127.0.0.1" \
-            -addext "keyUsage=digitalSignature" \
-            -addext "extendedKeyUsage=serverAuth" \
-            -out rpi-device-cert.csr || exit 1
+        -key "$SERVER_KEY_URI" \
+        -subj "/C=DE/ST=BW/O=Embetrix/OU=DeviceCert/CN=$HOSTNAME" \
+        -addext "subjectAltName=DNS:$HOSTNAME,DNS:localhost,IP:$DEVICE_IP,IP:127.0.0.1" \
+        -addext "keyUsage=digitalSignature" \
+        -addext "extendedKeyUsage=serverAuth" \
+        -out rpi-device-cert.csr || exit 1
 
     openssl x509 -req -in rpi-device-cert.csr \
-            -force_pubkey rpi-device-pubkey.pem \
-            -signkey "$SERVER_KEY_URI" \
-            -provider pkcs11 -provider default \
-            -out "$CERT_FILE" -days "$CERT_VALID_DAYS" \
-            -copy_extensions copyall || exit 1
+        -force_pubkey rpi-device-pubkey.pem \
+        -signkey "$SERVER_KEY_URI" \
+        -provider pkcs11 -provider default \
+        -out "$CERT_FILE" -days "$CERT_VALID_DAYS" \
+        -copy_extensions copyall || exit 1
 
     rm -f rpi-device-pubkey.pem rpi-device-cert.csr
+    else
+    if [ ! -f "$CERT_KEY_FILE" ]; then
+        openssl genpkey -algorithm EC -pkeyopt ec_paramgen_curve:prime256v1 \
+        -out "$CERT_KEY_FILE" || exit 1
+    fi
+
+    openssl req -new -x509 -sha256 \
+        -key "$CERT_KEY_FILE" \
+        -subj "/C=DE/ST=BW/O=Embetrix/OU=DeviceCert/CN=$HOSTNAME" \
+        -addext "subjectAltName=DNS:$HOSTNAME,DNS:localhost,IP:$DEVICE_IP,IP:127.0.0.1" \
+        -addext "keyUsage=digitalSignature" \
+        -addext "extendedKeyUsage=serverAuth" \
+        -out "$CERT_FILE" -days "$CERT_VALID_DAYS" || exit 1
+    fi
 fi
 
-chmod 644 *.pem
+chmod 644 "$CERT_FILE"
+
+if [ -f "$CERT_KEY_FILE" ]; then
+    chmod 600 "$CERT_KEY_FILE"
+fi

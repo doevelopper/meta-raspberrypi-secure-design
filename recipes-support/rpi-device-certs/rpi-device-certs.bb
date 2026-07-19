@@ -27,6 +27,9 @@ do_install:append() {
 	install -d ${D}${systemd_unitdir}/system
 	install -m 0644 ${UNPACKDIR}/rpi-device-certs.service ${D}${systemd_unitdir}/system/
     install -m 0644 ${UNPACKDIR}/rpi-device-certs.timer ${D}${systemd_unitdir}/system/
+
+    backend="${@bb.utils.contains('RPI_SECURITY_PROFILE', 'dev', 'file', 'pkcs11', d)}"
+    sed -i "s/@RPI_DEVICE_CERT_BACKEND@/${backend}/" ${D}${systemd_unitdir}/system/rpi-device-certs.service
 }
 
 FILES:${PN} = "${bindir} \

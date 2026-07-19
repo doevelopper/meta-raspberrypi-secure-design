@@ -10,6 +10,7 @@ RemainAfterExit=yes
 WorkingDirectory=/etc/certs
 Environment=RPI_DEVICE_CERT_VALID_DAYS=365
 Environment=RPI_DEVICE_CERT_RENEW_DAYS=30
+Environment=RPI_DEVICE_CERT_BACKEND=@RPI_DEVICE_CERT_BACKEND@
 ExecStart=/usr/bin/rpi-device-certs
 Restart=on-failure
 RestartSec=3

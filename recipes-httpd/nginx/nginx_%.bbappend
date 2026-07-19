@@ -3,7 +3,8 @@ FILESEXTRAPATHS:prepend := "${THISDIR}/files:"
 SRC_URI:append = " \
                file://nginx-override.conf \
                file://nginx.path \
-               file://default_server.site"
+               file://default_server_dev.site \
+               file://default_server_prod.site"
 
 RDEPENDS:${PN} += "rpi-device-certs"
 
@@ -22,7 +23,12 @@ do_install:append() {
     install -d ${D}${systemd_unitdir}/system/nginx.service.d
     install -m 0644 ${UNPACKDIR}/nginx-override.conf ${D}${systemd_unitdir}/system/nginx.service.d/
     install -m 0644 ${UNPACKDIR}/nginx.path ${D}${systemd_unitdir}/system/
-    install -m 0644 ${UNPACKDIR}/default_server.site ${D}${sysconfdir}/nginx/sites-available/default_server
+
+    if [ "${RPI_SECURITY_PROFILE}" = "dev" ]; then
+        install -m 0644 ${UNPACKDIR}/default_server_dev.site ${D}${sysconfdir}/nginx/sites-available/default_server
+    else
+        install -m 0644 ${UNPACKDIR}/default_server_prod.site ${D}${sysconfdir}/nginx/sites-available/default_server
+    fi
 
 }
 
