@@ -1,0 +1,11 @@
+[Unit]
+Description=Periodic device certificate renewal check
+
+[Timer]
+OnBootSec=10min
+OnUnitActiveSec=12h
+Unit=rpi-device-certs.service
+Persistent=true
+
+[Install]
+WantedBy=timers.target

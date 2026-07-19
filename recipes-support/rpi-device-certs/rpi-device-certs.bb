@@ -4,6 +4,7 @@ LIC_FILES_CHKSUM = "file://${COREBASE}/meta/COPYING.MIT;md5=3da9cfbcb788c80a0384
 
 SRC_URI = "file://rpi-device-certs.sh \
            file://rpi-device-certs.service \
+           file://rpi-device-certs.timer \
            "
 
 S = "${UNPACKDIR}"
@@ -19,12 +20,13 @@ do_install () {
     install -m 0755 ${UNPACKDIR}/rpi-device-certs.sh       ${D}${bindir}/rpi-device-certs
 }
 
-SYSTEMD_SERVICE:${PN} = "rpi-device-certs.service"
+SYSTEMD_SERVICE:${PN} = "rpi-device-certs.service rpi-device-certs.timer"
 SYSTEMD_PACKAGES = "${PN}"
 
 do_install:append() {
 	install -d ${D}${systemd_unitdir}/system
 	install -m 0644 ${UNPACKDIR}/rpi-device-certs.service ${D}${systemd_unitdir}/system/
+    install -m 0644 ${UNPACKDIR}/rpi-device-certs.timer ${D}${systemd_unitdir}/system/
 }
 
 FILES:${PN} = "${bindir} \

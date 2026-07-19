@@ -6,10 +6,35 @@
 # Usage: rpi-device-certs.sh [--force]
 #   --force: regenerate all device certificates even if they already exist
 
+CERT_FILE="rpi-device-cert.pem"
+CERT_VALID_DAYS="${RPI_DEVICE_CERT_VALID_DAYS:-365}"
+CERT_RENEW_DAYS="${RPI_DEVICE_CERT_RENEW_DAYS:-30}"
+
 
 if [ "$1" = "--force" ]; then
     echo "Force mode: regenerating all device certificates"
     rm -f *.pem
+fi
+
+case "$CERT_RENEW_DAYS" in
+    ''|*[!0-9]*)
+        echo "Invalid RPI_DEVICE_CERT_RENEW_DAYS: $CERT_RENEW_DAYS"
+        exit 1
+        ;;
+esac
+
+case "$CERT_VALID_DAYS" in
+    ''|*[!0-9]*)
+        echo "Invalid RPI_DEVICE_CERT_VALID_DAYS: $CERT_VALID_DAYS"
+        exit 1
+        ;;
+esac
+
+RENEW_SECONDS=$((CERT_RENEW_DAYS * 86400))
+
+if [ -f "$CERT_FILE" ] && ! openssl x509 -in "$CERT_FILE" -checkend "$RENEW_SECONDS" -noout >/dev/null 2>&1; then
+    echo "Certificate expires in less than ${CERT_RENEW_DAYS} day(s); regenerating"
+    rm -f "$CERT_FILE"
 fi
 
 # Get device IPv4 address
@@ -28,7 +53,7 @@ PKCS11_TOKEN="${PKCS11_TOKEN:-RPi%20OTP%20key}"
 SERVER_KEY_ID="${SERVER_KEY_ID:-%01}"
 SERVER_KEY_URI="pkcs11:object=${PKCS11_TOKEN};id=${SERVER_KEY_ID};type=private"
 
-if [ ! -f rpi-device-cert.pem ]; then
+if [ ! -f "$CERT_FILE" ]; then
     # pkcs11-provider reconstructs EC keys with explicit curve parameters:
     # browsers reject these so reencode as named curve (prime256v1)
     openssl pkey -provider pkcs11 -provider default -pubin \
@@ -48,7 +73,7 @@ if [ ! -f rpi-device-cert.pem ]; then
             -force_pubkey rpi-device-pubkey.pem \
             -signkey "$SERVER_KEY_URI" \
             -provider pkcs11 -provider default \
-            -out rpi-device-cert.pem -days 365 \
+            -out "$CERT_FILE" -days "$CERT_VALID_DAYS" \
             -copy_extensions copyall || exit 1
 
     rm -f rpi-device-pubkey.pem rpi-device-cert.csr
