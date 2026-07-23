@@ -31,6 +31,7 @@ EXTRA_USERS_PARAMS = " \
 
 IMAGE_INSTALL += " \
     packagegroup-security-base \
+    packagegroup-apps \
     packagegroup-swupdate \
     ${@bb.utils.contains('RPI_SECURITY_PROFILE', 'dev', "packagegroup-dev", '', d)}    \
     ${@bb.utils.contains('DISTRO_FEATURES', 'ima', "packagegroup-ima-evm", '', d)}     \

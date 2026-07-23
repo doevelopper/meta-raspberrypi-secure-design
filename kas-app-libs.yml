@@ -1,0 +1,11 @@
+# SPDX-License-Identifier: MIT
+# Optional KAS overlay to inject application libraries packagegroup in any image.
+# Usage:
+#   kas build kas-rpi-secure.yml:kas-signing-keys.yml:kas-app-libs.yml
+
+header:
+  version: 14
+
+local_conf_header:
+  app-libs: |
+    IMAGE_INSTALL:append = " packagegroup-apps"
